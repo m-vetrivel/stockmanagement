@@ -30,10 +30,10 @@ export default function App() {
   const [simulatedToday, setSimulatedToday] = useState(new Date().toISOString().split('T')[0]);
   const [inventory, setInventory] = useState([]);
   const [salesHistory, setSalesHistory] = useState([]);
-  
+
   const [orders, setOrders] = useState([]);
   const [ignored, setIgnored] = useState([]);
-  
+
   // UI State
   const [activeTab, setActiveTab] = useState('dashboard');
   const [salesFilter, setSalesFilter] = useState('1m'); // '1w', '1m', '2m', '3m'
@@ -43,7 +43,7 @@ export default function App() {
   const [showOnlyUnplaced, setShowOnlyUnplaced] = useState(false);
 
   // Gemini API & OCR State
-  const [geminiApiKey, setGeminiApiKey] = useState(() => import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem('gemini_api_key') || '');
+  const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '');
   const [geminiPrompt, setGeminiPrompt] = useState(() => localStorage.getItem('gemini_prompt') || 'Identify all product names and their corresponding quantities from this image. Return the output strictly in the following JSON array format: [ { "name": "ITEM_NAME_HERE", "qty": 12 }, ... ]');
   const [analysisState, setAnalysisState] = useState({
     status: 'idle', // 'idle', 'analyzing', 'success', 'error'
@@ -121,11 +121,11 @@ export default function App() {
   const placeOrderV1 = (item) => {
     const defaultQty = Math.max(1, item.minQuantity - item.currentQuantity);
     setOrders(prev => [
-      ...prev, 
-      { 
-        ...item, 
-        orderDate: simulatedToday, 
-        quantityOrdered: defaultQty, 
+      ...prev,
+      {
+        ...item,
+        orderDate: simulatedToday,
+        quantityOrdered: defaultQty,
         dealer: 'Apex Tex Mills', // Default fallback dealer
         placedAt: Date.now(),
         placed: false
@@ -227,13 +227,13 @@ export default function App() {
     const s1 = str1.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
     const s2 = str2.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
     if (s1 === s2) return 1.0;
-    
+
     // Word overlap (Jaccard-like score for names)
     const words1 = s1.split(/\s+/).filter(Boolean);
     const words2 = s2.split(/\s+/).filter(Boolean);
     const commonWords = words1.filter(w => words2.includes(w));
     const overlap = commonWords.length / Math.max(words1.length, words2.length);
-    
+
     // Levenshtein distance fallback
     const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
     for (let i = 0; i <= s1.length; i += 1) track[0][i] = i;
@@ -250,7 +250,7 @@ export default function App() {
     }
     const distance = track[s2.length][s1.length];
     const levSim = 1 - distance / Math.max(s1.length, s2.length);
-    
+
     return Math.max(overlap, levSim);
   };
 
@@ -270,8 +270,8 @@ export default function App() {
 
     try {
       const mimeType = base64Image.match(/data:([^;]+);base64,/)?.[1] || 'image/png';
-      const base64Data = base64Image.includes(';base64,') 
-        ? base64Image.split(';base64,')[1] 
+      const base64Data = base64Image.includes(';base64,')
+        ? base64Image.split(';base64,')[1]
         : base64Image;
 
       const response = await fetch(
@@ -304,10 +304,10 @@ export default function App() {
 
       const res = await response.json();
       const text = res.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      
+
       // Store the raw text immediately in the state so it is accessible for debugging
       setAnalysisState(prev => ({ ...prev, rawResponse: text }));
-      
+
       if (!text.trim()) {
         throw new Error("Gemini returned an empty response.");
       }
@@ -354,11 +354,11 @@ export default function App() {
     const processed = rawItems.map((raw, index) => {
       const cleanedName = (raw.name || 'UNKNOWN ITEM').trim().toUpperCase();
       const qty = parseInt(raw.qty, 10) || 1;
-      
+
       // Find closest match in inventory
       let bestMatch = null;
       let highestScore = 0;
-      
+
       inventory.forEach(item => {
         const score = getSimilarity(cleanedName, item.name);
         if (score > highestScore) {
@@ -368,7 +368,7 @@ export default function App() {
       });
 
       const isMatch = highestScore >= 0.6;
-      
+
       return {
         id: `extracted-${index}`,
         extractedName: cleanedName,
@@ -415,7 +415,7 @@ export default function App() {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onloadend = () => {
       setAnalysisState(prev => ({
@@ -528,7 +528,7 @@ export default function App() {
   // Process Dashboard Items (Low Stock & Sold in Period)
   const dashboardItems = useMemo(() => {
     const today = new Date(simulatedToday);
-    
+
     // Determine cutoff date based on filter
     const cutoffDate = new Date(today);
     if (salesFilter === '1w') cutoffDate.setDate(today.getDate() - 7);
@@ -545,7 +545,7 @@ export default function App() {
       });
 
       const totalSalesQty = itemSales.reduce((sum, sale) => sum + sale.quantity, 0);
-      
+
       return {
         ...item,
         salesInPeriod: totalSalesQty
@@ -555,7 +555,7 @@ export default function App() {
       const hasSales = item.salesInPeriod > 0;
       const isOrdered = orders.some(o => o.id === item.id);
       const isIgnored = ignored.some(i => i.id === item.id);
-      
+
       return isBelowMin && hasSales && !isOrdered && !isIgnored;
     });
   }, [inventory, salesHistory, simulatedToday, salesFilter, orders, ignored]);
@@ -628,10 +628,10 @@ export default function App() {
 
   const downloadPurchaseOrderPDF = (dealerName, items) => {
     const userNote = prompt("Enter a custom note/remark to print on the Purchase Order (optional):", "") || "";
-    
+
     const poNumber = `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const dateFormatted = new Date().toLocaleString();
-    
+
     const tableRows = items.map((item, idx) => {
       const qty = item.quantityOrdered || Math.max(1, item.minQuantity - item.currentQuantity);
 
@@ -906,11 +906,11 @@ export default function App() {
   const handleInitiateOrder = (item) => {
     const baseName = getBaseName(item.name);
     const matches = inventory.filter(i => getBaseName(i.name) === baseName);
-    
+
     if (matches.length > 1) {
       setVariantBaseName(baseName);
       setVariantModalGroup(matches);
-      
+
       const initialQtys = {};
       const initialDealers = {};
       matches.forEach(m => {
@@ -978,23 +978,23 @@ export default function App() {
       {/* Top Routing Navbar */}
       <nav className="version-navbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <svg width="24" height="24" fill="none" stroke="var(--accent-primary)" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+          <svg width="24" height="24" fill="none" stroke="var(--accent-primary)" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
           <span style={{ fontWeight: 7, fontSize: '1.125rem', letterSpacing: '-0.025em' }}>InventoryHub</span>
         </div>
         <div className="version-nav-links">
-          <button 
+          <button
             className={`version-btn ${isV1 ? 'active' : ''}`}
             onClick={() => navigateTo('/')}
           >
             Version 1: Classic
           </button>
-          <button 
+          <button
             className={`version-btn ${isV2 ? 'active' : ''}`}
             onClick={() => navigateTo('/version2')}
           >
             Version 2: Dealer & Qty
           </button>
-          <button 
+          <button
             className={`version-btn ${isV3 ? 'active' : ''}`}
             onClick={() => navigateTo('/version3')}
           >
@@ -1008,20 +1008,20 @@ export default function App() {
           <div>
             <h1>Stock Management {isV3 ? 'v3' : isV2 ? 'v2' : 'v1'}</h1>
             <p style={{ color: 'var(--text-secondary)' }}>
-              {isV3 
+              {isV3
                 ? 'Time-Prioritized Restock Ledger & Automated Purchase Order Generation'
-                : isV2 
-                  ? 'Dealer & Custom Quantity Restock Portal' 
+                : isV2
+                  ? 'Dealer & Custom Quantity Restock Portal'
                   : 'Intelligent Inventory & Sales Prototype'}
             </p>
           </div>
-          
+
           <div className="controls-section glass-panel" style={{ padding: '0.75rem 1.5rem', border: 'none' }}>
             <div className="date-picker-group">
               <label htmlFor="simulated-today">Set 'Today' Date</label>
-              <input 
-                type="date" 
-                id="simulated-today" 
+              <input
+                type="date"
+                id="simulated-today"
                 className="date-input"
                 value={simulatedToday}
                 onChange={handleDateChange}
@@ -1031,25 +1031,25 @@ export default function App() {
         </header>
 
         <nav className="nav-tabs glass-panel" style={{ padding: '0.5rem' }}>
-          <button 
+          <button
             className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActiveTab('dashboard')}
           >
             Order Dashboard ({dashboardItems.length})
           </button>
-          <button 
+          <button
             className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
             onClick={() => setActiveTab('orders')}
           >
             Order List ({orders.length})
           </button>
-          <button 
+          <button
             className={`tab-btn ${activeTab === 'ignored' ? 'active' : ''}`}
             onClick={() => setActiveTab('ignored')}
           >
             Ignored Items ({ignored.length})
           </button>
-          <button 
+          <button
             className={`tab-btn ${activeTab === 'management' ? 'active' : ''}`}
             onClick={() => setActiveTab('management')}
           >
@@ -1063,7 +1063,7 @@ export default function App() {
               <div className="filters-bar">
                 <h2 style={{ fontSize: '1.25rem' }}>Items Needing Restock</h2>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                  <select 
+                  <select
                     className="select-input"
                     value={salesFilter}
                     onChange={(e) => setSalesFilter(e.target.value)}
@@ -1075,7 +1075,7 @@ export default function App() {
                   </select>
 
                   <div className="view-toggle glass-panel" style={{ display: 'flex', padding: '0.25rem', border: 'none', gap: '0.25rem' }}>
-                    <button 
+                    <button
                       className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
                       onClick={() => setViewMode('grid')}
                       style={{
@@ -1090,9 +1090,9 @@ export default function App() {
                       }}
                       title="Grid View"
                     >
-                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z"/></svg>
+                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z" /></svg>
                     </button>
-                    <button 
+                    <button
                       className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
                       onClick={() => setViewMode('list')}
                       style={{
@@ -1107,7 +1107,7 @@ export default function App() {
                       }}
                       title="List View"
                     >
-                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M4 15h16v-2H4v2zm0 4h16v-2H4v2zm0-8h16V9H4v2zm0-6v2h16V5H4z"/></svg>
+                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M4 15h16v-2H4v2zm0 4h16v-2H4v2zm0-8h16V9H4v2zm0-6v2h16V5H4z" /></svg>
                     </button>
                   </div>
                 </div>
@@ -1121,14 +1121,14 @@ export default function App() {
               ) : viewMode === 'grid' ? (
                 <div className="items-grid">
                   {dashboardItems.map(item => (
-                    <div 
-                      key={item.id} 
+                    <div
+                      key={item.id}
                       className="item-card glass-panel"
                       style={{ border: isV3 ? '1px solid rgba(59, 130, 246, 0.35)' : '1px solid var(--border-color)' }}
                     >
                       {isV3 && (
                         <div className="v3-date-header">
-                          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                           Last Sold: {getLastSaleDate(item.id)}
                         </div>
                       )}
@@ -1136,7 +1136,7 @@ export default function App() {
                         <h3 className="item-title">{item.name}</h3>
                         <span className="status-badge status-critical">Low Stock</span>
                       </div>
-                      
+
                       <div className="item-stats">
                         <div className="stat-block">
                           <span className="stat-label">Current Qty</span>
@@ -1147,12 +1147,12 @@ export default function App() {
                           <span className="stat-value">{item.minQuantity}</span>
                         </div>
                       </div>
-                      
+
                       <div className="sales-info">
                         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
                         <span>Sold <span className="sales-count">{item.salesInPeriod}</span> pieces in selected period</span>
                       </div>
-                      
+
                       <div className="card-actions">
                         <button className="btn btn-primary" onClick={() => handleInitiateOrder(item)}>
                           Add to Order List
@@ -1167,10 +1167,10 @@ export default function App() {
               ) : (
                 <div className="list-container">
                   {dashboardItems.map(item => (
-                    <div 
-                      key={item.id} 
+                    <div
+                      key={item.id}
                       className="list-item glass-panel animate-fade-in"
-                      style={{ 
+                      style={{
                         border: isV3 ? '1px solid rgba(59, 130, 246, 0.35)' : '1px solid var(--border-color)',
                         flexDirection: isV3 ? 'column' : 'row',
                         alignItems: isV3 ? 'stretch' : 'center'
@@ -1178,11 +1178,11 @@ export default function App() {
                     >
                       {isV3 && (
                         <div className="v3-date-header" style={{ marginBottom: '0.5rem', width: 'fit-content' }}>
-                          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                           Last Sold: {getLastSaleDate(item.id)}
                         </div>
                       )}
-                      
+
                       <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                         <div className="list-item-info">
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1219,10 +1219,10 @@ export default function App() {
               <div className="filters-bar">
                 <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
                   <h2 style={{ fontSize: '1.25rem' }}>Order List</h2>
-                  
+
                   {/* V2/V3 Specific Dealer Group Toggler */}
                   {(isV2 || isV3) && (
-                    <button 
+                    <button
                       className={`btn ${groupByDealers ? 'btn-primary' : 'btn-secondary'}`}
                       style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', borderRadius: '6px' }}
                       onClick={() => setGroupByDealers(!groupByDealers)}
@@ -1233,7 +1233,7 @@ export default function App() {
 
                   {/* Show Only Unplaced toggle checkbox */}
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                    <input 
+                    <input
                       type="checkbox"
                       checked={showOnlyUnplaced}
                       onChange={(e) => setShowOnlyUnplaced(e.target.checked)}
@@ -1243,7 +1243,7 @@ export default function App() {
                   </label>
                 </div>
 
-                <select 
+                <select
                   className="select-input"
                   value={ordersFilter}
                   onChange={(e) => setOrdersFilter(e.target.value)}
@@ -1269,18 +1269,18 @@ export default function App() {
                       const hasUnplaced = dealerOrders.some(o => !o.placed);
                       return (
                         <div key={dealerName} className="dealer-group glass-panel">
-                          <div 
+                          <div
                             className="dealer-header"
                             onClick={() => toggleDealerExpand(dealerName)}
                           >
                             <div className="dealer-header-title">
-                              <svg 
-                                width="16" 
-                                height="16" 
-                                fill="none" 
-                                stroke="currentColor" 
+                              <svg
+                                width="16"
+                                height="16"
+                                fill="none"
+                                stroke="currentColor"
                                 viewBox="0 0 24 24"
-                                style={{ 
+                                style={{
                                   transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
                                   transition: 'transform 0.2s'
                                 }}
@@ -1290,12 +1290,12 @@ export default function App() {
                               <h3 style={{ fontSize: '1rem', color: '#fff' }}>{dealerName}</h3>
                               <span className="dealer-badge">{dealerOrders.length} items</span>
                             </div>
-                            
+
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                               {hasUnplaced ? (
-                                <button 
-                                  className="btn btn-success" 
-                                  style={{ flex: 'none', padding: '0.4rem 0.8rem', fontSize: '0.75rem' }} 
+                                <button
+                                  className="btn btn-success"
+                                  style={{ flex: 'none', padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     markDealerAsPlaced(dealerName);
@@ -1309,9 +1309,9 @@ export default function App() {
                                 </span>
                               )}
 
-                              <button 
-                                className="btn btn-secondary" 
-                                style={{ flex: 'none', padding: '0.4rem 0.8rem', fontSize: '0.75rem' }} 
+                              <button
+                                className="btn btn-secondary"
+                                style={{ flex: 'none', padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   copyDealerOrderText(dealerName, dealerOrders);
@@ -1320,20 +1320,20 @@ export default function App() {
                                 {copiedDealer === dealerName ? 'Copied!' : 'Copy'}
                               </button>
 
-                              <button 
-                                className="btn btn-primary" 
-                                style={{ flex: 'none', padding: '0.4rem 0.8rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'linear-gradient(135deg, var(--accent-secondary) 0%, #059669 100%)', border: 'none' }} 
+                              <button
+                                className="btn btn-primary"
+                                style={{ flex: 'none', padding: '0.4rem 0.8rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'linear-gradient(135deg, var(--accent-secondary) 0%, #059669 100%)', border: 'none' }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   downloadPurchaseOrderPDF(dealerName, dealerOrders);
                                 }}
                               >
-                                <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                                 PO PDF
                               </button>
                             </div>
                           </div>
-                          
+
                           {isExpanded && (
                             <div className="dealer-items-list animate-fade-in">
                               {dealerOrders.map(item => (
@@ -1353,8 +1353,8 @@ export default function App() {
                                         <span className="status-badge" style={{ background: 'rgba(245, 158, 11, 0.2)', color: 'var(--warning)', border: '1px solid rgba(245, 158, 11, 0.3)', fontSize: '0.65rem', padding: '0.15rem 0.4rem' }}>
                                           Pending
                                         </span>
-                                        <button 
-                                          className="btn btn-primary" 
+                                        <button
+                                          className="btn btn-primary"
                                           style={{ padding: '0.25rem 0.5rem', fontSize: '0.65rem', borderRadius: '4px' }}
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -1385,10 +1385,10 @@ export default function App() {
                 ) : (
                   <div className="list-container">
                     {processedOrders.map(item => (
-                      <div 
-                        key={item.id} 
+                      <div
+                        key={item.id}
                         className="list-item glass-panel"
-                        style={{ 
+                        style={{
                           border: isV3 ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--border-color)',
                           flexDirection: isV3 ? 'column' : 'row',
                           alignItems: isV3 ? 'stretch' : 'center'
@@ -1419,8 +1419,8 @@ export default function App() {
                               <span className="status-badge" style={{ background: 'rgba(245, 158, 11, 0.2)', color: 'var(--warning)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
                                 Pending
                               </span>
-                              <button 
-                                className="btn btn-primary" 
+                              <button
+                                className="btn btn-primary"
                                 style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', flex: 'none' }}
                                 onClick={() => markAsPlaced(item.id)}
                               >
@@ -1441,7 +1441,7 @@ export default function App() {
             <div className="animate-fade-in">
               <div className="filters-bar">
                 <h2 style={{ fontSize: '1.25rem' }}>Ignored Items</h2>
-                <select 
+                <select
                   className="select-input"
                   value={ignoredFilter}
                   onChange={(e) => setIgnoredFilter(e.target.value)}
@@ -1460,10 +1460,10 @@ export default function App() {
               ) : (
                 <div className="list-container">
                   {processedIgnored.map(item => (
-                    <div 
-                      key={item.id} 
+                    <div
+                      key={item.id}
                       className="list-item glass-panel"
-                      style={{ 
+                      style={{
                         border: isV3 ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid var(--border-color)',
                         flexDirection: isV3 ? 'column' : 'row',
                         alignItems: isV3 ? 'stretch' : 'center'
@@ -1483,9 +1483,9 @@ export default function App() {
                             {!isV3 && <span style={{ color: 'var(--text-secondary)' }}>Ignored on: {formatDate(item.ignoreDate)}</span>}
                           </div>
                         </div>
-                        <button 
-                          className="btn btn-success" 
-                          style={{ flex: 'none', padding: '0.5rem 1rem' }} 
+                        <button
+                          className="btn btn-success"
+                          style={{ flex: 'none', padding: '0.5rem 1rem' }}
                           onClick={() => handleInitiateOrder(item)}
                         >
                           Add to Order List
@@ -1501,14 +1501,14 @@ export default function App() {
           {activeTab === 'management' && (
             <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
               <div className="management-grid">
-                
+
                 {/* Left Side: Upload & OCR Analysis */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                  
+
                   {/* Gemini Settings Visibility Toggle */}
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-0.75rem' }}>
-                    <button 
-                      className="btn btn-secondary" 
+                    <button
+                      className="btn btn-secondary"
                       style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', borderRadius: '6px' }}
                       onClick={() => setShowApiSettings(!showApiSettings)}
                     >
@@ -1520,14 +1520,14 @@ export default function App() {
                   {showApiSettings && (
                     <div className="glass-panel api-settings">
                       <h3 style={{ fontSize: '0.95rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                         Gemini API & Prompt Configuration
                       </h3>
-                      
+
                       <div className="form-group" style={{ marginTop: '0.25rem' }}>
                         <label htmlFor="gemini-key-input" style={{ fontSize: '0.75rem' }}>Gemini API Key</label>
-                        <input 
-                          type="password" 
+                        <input
+                          type="password"
                           id="gemini-key-input"
                           className="form-input"
                           style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
@@ -1539,7 +1539,7 @@ export default function App() {
 
                       <div className="form-group">
                         <label htmlFor="gemini-prompt-input" style={{ fontSize: '0.75rem' }}>Custom Instruction / Prompt</label>
-                        <textarea 
+                        <textarea
                           id="gemini-prompt-input"
                           className="form-input"
                           style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'inherit', minHeight: '80px' }}
@@ -1563,18 +1563,18 @@ export default function App() {
                     </p>
 
                     {/* Drag and Drop Zone */}
-                    <div 
+                    <div
                       className="upload-zone"
                       onDragOver={handleDragOver}
                       onDrop={handleDrop}
                       onClick={() => document.getElementById('stock-image-file').click()}
                     >
-                      <svg width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                      <svg width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                       <span className="upload-zone-text">Drag & Drop Image or Click to Browse</span>
-                      <input 
-                        type="file" 
-                        id="stock-image-file" 
-                        accept="image/*" 
+                      <input
+                        type="file"
+                        id="stock-image-file"
+                        accept="image/*"
                         style={{ display: 'none' }}
                         onChange={handleImageUpload}
                       />
@@ -1607,7 +1607,7 @@ export default function App() {
                         <h3 style={{ fontSize: '0.95rem', color: '#fff', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
                           Extracted Items ({analysisState.extractedItems.length})
                         </h3>
-                        
+
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
                           {analysisState.extractedItems.map((item) => {
                             return (
@@ -1621,7 +1621,7 @@ export default function App() {
 
                                 {/* Status / Operation Toggle */}
                                 <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem' }}>
-                                  <button 
+                                  <button
                                     className={`btn ${item.status === 'matched' ? 'btn-primary' : 'btn-secondary'}`}
                                     style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', borderRadius: '4px', flex: 1 }}
                                     onClick={() => updateExtractedItemField(item.id, 'status', 'matched')}
@@ -1629,14 +1629,14 @@ export default function App() {
                                   >
                                     Match
                                   </button>
-                                  <button 
+                                  <button
                                     className={`btn ${item.status === 'linked' ? 'btn-primary' : 'btn-secondary'}`}
                                     style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', borderRadius: '4px', flex: 1 }}
                                     onClick={() => updateExtractedItemField(item.id, 'status', 'linked')}
                                   >
                                     Link
                                   </button>
-                                  <button 
+                                  <button
                                     className={`btn ${item.status === 'new' ? 'btn-primary' : 'btn-secondary'}`}
                                     style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', borderRadius: '4px', flex: 1 }}
                                     onClick={() => updateExtractedItemField(item.id, 'status', 'new')}
@@ -1684,9 +1684,9 @@ export default function App() {
                                     </div>
                                     <div className="form-group">
                                       <label style={{ fontSize: '0.7rem' }}>Item Catalog Name</label>
-                                      <input 
-                                        type="text" 
-                                        className="form-input" 
+                                      <input
+                                        type="text"
+                                        className="form-input"
                                         style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
                                         value={item.extractedName}
                                         onChange={(e) => updateExtractedItemField(item.id, 'extractedName', e.target.value)}
@@ -1694,9 +1694,9 @@ export default function App() {
                                     </div>
                                     <div className="form-group">
                                       <label style={{ fontSize: '0.7rem' }}>Min Stock Limit</label>
-                                      <input 
-                                        type="number" 
-                                        className="form-input" 
+                                      <input
+                                        type="number"
+                                        className="form-input"
                                         style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
                                         value={item.newItemMinQty}
                                         onChange={(e) => updateExtractedItemField(item.id, 'newItemMinQty', e.target.value)}
@@ -1726,15 +1726,15 @@ export default function App() {
                         <summary style={{ cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 5, userSelect: 'none' }}>
                           Show Raw Gemini API Response
                         </summary>
-                        <pre style={{ 
-                          fontSize: '0.75rem', 
-                          overflowX: 'auto', 
-                          whiteSpace: 'pre-wrap', 
-                          marginTop: '0.5rem', 
-                          maxHeight: '180px', 
-                          color: '#a5f3fc', 
-                          background: 'rgba(0,0,0,0.25)', 
-                          padding: '0.6rem', 
+                        <pre style={{
+                          fontSize: '0.75rem',
+                          overflowX: 'auto',
+                          whiteSpace: 'pre-wrap',
+                          marginTop: '0.5rem',
+                          maxHeight: '180px',
+                          color: '#a5f3fc',
+                          background: 'rgba(0,0,0,0.25)',
+                          padding: '0.6rem',
                           borderRadius: '6px',
                           border: '1px solid rgba(255,255,255,0.03)',
                           fontFamily: 'monospace'
@@ -1752,11 +1752,11 @@ export default function App() {
                   <div className="filters-bar" style={{ marginBottom: 0 }}>
                     <h2 style={{ fontSize: '1.25rem', color: '#fff' }}>Detailed Stock & Sales Ledger</h2>
                     <div className="search-input-container" style={{ maxWidth: '320px' }}>
-                      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                      <input 
-                        type="text" 
+                      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                      <input
+                        type="text"
                         className="search-input"
-                        placeholder="Search items..." 
+                        placeholder="Search items..."
                         value={managementSearch}
                         onChange={(e) => setManagementSearch(e.target.value)}
                       />
@@ -1795,7 +1795,7 @@ export default function App() {
                                 <td>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                      <input 
+                                      <input
                                         type="number"
                                         className="date-input"
                                         style={{ width: '65px', padding: '0.2rem 0.4rem', textAlign: 'center', fontSize: '0.85rem' }}
@@ -1810,8 +1810,8 @@ export default function App() {
                                     </div>
                                     <div className="stock-progress-container">
                                       <div className="stock-progress-bar">
-                                        <div 
-                                          className="stock-progress-fill" 
+                                        <div
+                                          className="stock-progress-fill"
                                           style={{ width: `${percentage}%`, backgroundColor: barColor }}
                                         ></div>
                                       </div>
@@ -1823,48 +1823,48 @@ export default function App() {
                                   <span style={{ fontWeight: 5 }}>{item.minQuantity}</span>
                                 </td>
                                 <td>
-                                   <div style={{ 
-                                     fontSize: '0.8rem',
-                                     border: isV3 ? '1px dashed rgba(59, 130, 246, 0.4)' : 'none',
-                                     background: isV3 ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
-                                     padding: isV3 ? '0.4rem' : '0',
-                                     borderRadius: isV3 ? '6px' : '0'
-                                   }}>
-                                     <div><strong>{purchased.quantity} pcs</strong></div>
-                                     <div style={{ 
-                                       color: isV3 ? '#60a5fa' : 'var(--text-secondary)', 
-                                       fontSize: '0.75rem', 
-                                       marginTop: '0.15rem',
-                                       fontWeight: isV3 ? 'bold' : 'normal',
-                                       display: 'flex',
-                                       alignItems: 'center',
-                                       gap: '0.2rem'
-                                     }}>
-                                       {isV3 && <span>📅</span>} {purchased.date}
-                                     </div>
-                                     <div style={{ color: 'var(--accent-secondary)', fontSize: '0.7rem' }}>
-                                       {purchased.dealer}
-                                     </div>
-                                   </div>
-                                 </td>
-                                 <td>
-                                   <div style={{ fontSize: '0.8rem' }}>
-                                     <div>Units Sold: <strong style={{ color: 'var(--accent-primary)' }}>{sales.totalQty}</strong></div>
-                                     <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.15rem' }}>
-                                       Orders: {sales.count}
-                                     </div>
-                                     <div style={{ 
-                                       color: isV3 ? '#60a5fa' : 'var(--text-secondary)', 
-                                       fontSize: '0.75rem',
-                                       fontWeight: isV3 ? 'bold' : 'normal',
-                                       display: 'flex',
-                                       alignItems: 'center',
-                                       gap: '0.2rem'
-                                     }}>
-                                       {isV3 && <span>🛒</span>} Last Sold: {sales.lastDate}
-                                     </div>
-                                   </div>
-                                 </td>
+                                  <div style={{
+                                    fontSize: '0.8rem',
+                                    border: isV3 ? '1px dashed rgba(59, 130, 246, 0.4)' : 'none',
+                                    background: isV3 ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
+                                    padding: isV3 ? '0.4rem' : '0',
+                                    borderRadius: isV3 ? '6px' : '0'
+                                  }}>
+                                    <div><strong>{purchased.quantity} pcs</strong></div>
+                                    <div style={{
+                                      color: isV3 ? '#60a5fa' : 'var(--text-secondary)',
+                                      fontSize: '0.75rem',
+                                      marginTop: '0.15rem',
+                                      fontWeight: isV3 ? 'bold' : 'normal',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.2rem'
+                                    }}>
+                                      {isV3 && <span>📅</span>} {purchased.date}
+                                    </div>
+                                    <div style={{ color: 'var(--accent-secondary)', fontSize: '0.7rem' }}>
+                                      {purchased.dealer}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td>
+                                  <div style={{ fontSize: '0.8rem' }}>
+                                    <div>Units Sold: <strong style={{ color: 'var(--accent-primary)' }}>{sales.totalQty}</strong></div>
+                                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.15rem' }}>
+                                      Orders: {sales.count}
+                                    </div>
+                                    <div style={{
+                                      color: isV3 ? '#60a5fa' : 'var(--text-secondary)',
+                                      fontSize: '0.75rem',
+                                      fontWeight: isV3 ? 'bold' : 'normal',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.2rem'
+                                    }}>
+                                      {isV3 && <span>🛒</span>} Last Sold: {sales.lastDate}
+                                    </div>
+                                  </div>
+                                </td>
                               </tr>
                             );
                           })}
@@ -1895,10 +1895,10 @@ export default function App() {
 
             <div className="form-group">
               <label htmlFor="modal-qty">Quantity to Order (pieces)</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 id="modal-qty"
-                className="form-input" 
+                className="form-input"
                 value={orderQuantityInput}
                 min="1"
                 onChange={(e) => setOrderQuantityInput(e.target.value)}
@@ -1907,7 +1907,7 @@ export default function App() {
 
             <div className="form-group">
               <label htmlFor="modal-dealer">Select Textile Dealer</label>
-              <select 
+              <select
                 id="modal-dealer"
                 className="form-input"
                 value={orderDealerInput}
@@ -1936,7 +1936,7 @@ export default function App() {
         <div className="modal-backdrop" style={{ zIndex: 1010 }}>
           <div className="modal-content glass-panel animate-fade-in" style={{ background: '#1e293b', maxWidth: '680px', width: '90%' }}>
             <h2 style={{ fontSize: '1.25rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <svg width="20" height="20" fill="none" stroke="var(--accent-primary)" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+              <svg width="20" height="20" fill="none" stroke="var(--accent-primary)" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
               Bulk Variant Order Portal
             </h2>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '-0.5rem' }}>
@@ -2011,8 +2011,8 @@ export default function App() {
               <button className="btn btn-success" onClick={placeBulkVariantOrders} style={{ flex: 2 }}>
                 Confirm Variant Orders
               </button>
-              <button 
-                className="btn btn-secondary" 
+              <button
+                className="btn btn-secondary"
                 onClick={() => {
                   const firstItem = variantModalGroup[0];
                   setVariantModalGroup([]);
@@ -2026,9 +2026,9 @@ export default function App() {
               >
                 Order Single Size Only
               </button>
-              <button 
-                className="btn btn-secondary" 
-                onClick={() => setVariantModalGroup([])} 
+              <button
+                className="btn btn-secondary"
+                onClick={() => setVariantModalGroup([])}
                 style={{ flex: 1, padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
               >
                 Cancel
@@ -2042,9 +2042,9 @@ export default function App() {
       {toast && (
         <div className="toast-notification">
           {toast.type === 'success' ? (
-            <svg width="20" height="20" fill="none" stroke="var(--success)" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <svg width="20" height="20" fill="none" stroke="var(--success)" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           ) : (
-            <svg width="20" height="20" fill="none" stroke="var(--danger)" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <svg width="20" height="20" fill="none" stroke="var(--danger)" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
           )}
           <span style={{ fontSize: '0.875rem', fontWeight: 5, color: '#fff' }}>{toast.message}</span>
         </div>
